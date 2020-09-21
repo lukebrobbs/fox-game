@@ -10,9 +10,9 @@ export const ANIMATIONS = {
   EATING: "eating",
   CELEBRATING: "celebrate",
   SLEEPING: "sleep",
+  RAIN: "rain",
+  HUNGRY: "hungry",
 };
 
-export const RAIN_CHANCE = 0.2;
-export const SCENES = ["day", "rain"];
 export const DAY_LENGTH = 30;
-export const NIGHT_LENGTH = 10;
+export const NIGHT_LENGTH = 20;

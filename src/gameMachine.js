@@ -1,20 +1,6 @@
 import { createMachine, interpret, assign, send, sendParent } from "xstate";
-import { ICONS, ANIMATIONS, NIGHT_LENGTH, DAY_LENGTH } from "./constants";
-
-const toggleHighlighted = (icon, show) =>
-  document
-    .querySelector(`${ICONS[icon]}-icon`)
-    .classList.toggle("highlighted", show);
-
-const modFox = function (state) {
-  document.querySelector(".fox").className = `fox fox-${ANIMATIONS[state]}`;
-};
-const modScene = function (state) {
-  document.querySelector(".game").className = `game ${state}`;
-};
-const togglePoopBag = (hidden) => {
-  document.querySelector(".poop-bag").classList.toggle("hidden", hidden);
-};
+import { NIGHT_LENGTH, DAY_LENGTH } from "./constants";
+import { modFox, modScene, toggleHighlighted } from "./ui";
 
 const startClock = assign({
   wakeTime: (context) => context.clock + 3,
@@ -54,15 +40,34 @@ const iconMachine = createMachine(
         exit: "dehighlightPoop",
       },
       WEATHER: {
+        initial: "DAY",
         on: {
           RIGHT: "FEED",
           LEFT: "POOP",
           SELECT: {
-            actions: "changeWeather",
+            actions: () => console.log("SEL"),
           },
         },
         entry: "highlightWeather",
         exit: "dehighlightWeather",
+        states: {
+          RAIN: {
+            on: {
+              SELECT: {
+                target: "DAY",
+                actions: "setDay",
+              },
+            },
+          },
+          DAY: {
+            on: {
+              SELECT: {
+                target: "RAIN",
+                actions: "setRain",
+              },
+            },
+          },
+        },
       },
     },
   },
@@ -75,8 +80,14 @@ const iconMachine = createMachine(
       cleanupPoop: () => console.log("cleanup poop"),
       highlightWeather: () => toggleHighlighted("WEATHER", true),
       dehighlightWeather: () => toggleHighlighted("WEATHER", false),
-      changeWeather: () =>
-        (document.querySelector(".game").className = "game night"),
+      setRain: () => {
+        modScene("rain");
+        modFox("RAIN");
+      },
+      setDay: () => {
+        modScene("day");
+        modFox("IDLE");
+      },
     },
   }
 );
@@ -176,9 +187,6 @@ const gameMachine = createMachine(
           SELECT: {
             actions: send("SELECT", { to: "ICONS" }),
           },
-          TICK: {
-            actions: send("TICK", { to: "SCENE" }),
-          },
         },
         states: {
           FOX: {
@@ -196,12 +204,18 @@ const gameMachine = createMachine(
                 on: {
                   FEED: "EATING",
                   SLEEP: "SLEEPING",
+                  TICK: {
+                    actions: send("TICK", { to: "SCENE" }),
+                  },
                 },
               },
               SLEEPING: {
                 entry: "sleepingAnimation",
                 on: {
-                  WAKE: "IDLING",
+                  WAKE: "HUNGRY",
+                  TICK: {
+                    actions: send("TICK", { to: "SCENE" }),
+                  },
                 },
               },
               EATING: {
@@ -211,7 +225,15 @@ const gameMachine = createMachine(
                 },
               },
               POOPING: {},
-              HUNGRY: {},
+              HUNGRY: {
+                entry: "hungryAnimation",
+                on: {
+                  FEED: "EATING",
+                  TICK: {
+                    actions: send("TICK", { to: "SCENE" }),
+                  },
+                },
+              },
               CELEBRATING: {
                 entry: "celebratingAnimation",
                 after: {
@@ -232,6 +254,7 @@ const gameMachine = createMachine(
       eatingAnimation: () => modFox("EATING"),
       celebratingAnimation: () => modFox("CELEBRATING"),
       sleepingAnimation: () => modFox("SLEEPING"),
+      hungryAnimation: () => modFox("HUNGRY"),
     },
     delays: {
       HATCH: 3500,
@@ -241,8 +264,6 @@ const gameMachine = createMachine(
   }
 );
 
-const gameService = interpret(gameMachine)
-  .onTransition((state) => console.log(state))
-  .start();
+const gameService = interpret(gameMachine).start();
 
 export default gameService;
