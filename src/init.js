@@ -1,4 +1,5 @@
 import gameService from "./gameMachine";
+import initButtons from "./buttons";
 
 const TICK_RATE = 3000;
 
@@ -16,6 +17,7 @@ async function init() {
     }
     requestAnimationFrame(nextAnimationFrame);
   }
+  initButtons(gameService);
   requestAnimationFrame(nextAnimationFrame);
 }
 
