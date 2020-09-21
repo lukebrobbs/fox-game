@@ -1,5 +1,5 @@
 export const ICONS = {
-  FISH: ".fish",
+  FEED: ".feed",
   POOP: ".poop",
   WEATHER: ".weather",
 };
