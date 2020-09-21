@@ -40,31 +40,15 @@ const iconMachine = createMachine(
         exit: "dehighlightPoop",
       },
       WEATHER: {
-        initial: "DAY",
         on: {
           RIGHT: "FEED",
           LEFT: "POOP",
+          SELECT: {
+            actions: sendParent("WEATHER"),
+          },
         },
         entry: "highlightWeather",
         exit: "dehighlightWeather",
-        states: {
-          RAIN: {
-            on: {
-              SELECT: {
-                target: "DAY",
-                actions: "setDay",
-              },
-            },
-          },
-          DAY: {
-            on: {
-              SELECT: {
-                target: "RAIN",
-                actions: "setRain",
-              },
-            },
-          },
-        },
       },
     },
   },
@@ -77,14 +61,6 @@ const iconMachine = createMachine(
       cleanupPoop: () => console.log("cleanup poop"),
       highlightWeather: () => toggleHighlighted("WEATHER", true),
       dehighlightWeather: () => toggleHighlighted("WEATHER", false),
-      setRain: () => {
-        modScene("rain");
-        modFox("RAIN");
-      },
-      setDay: () => {
-        modScene("day");
-        modFox("IDLE");
-      },
     },
   }
 );
@@ -113,16 +89,23 @@ const sceneMachine = createMachine(
             actions: sendParent("SLEEP"),
             cond: "isNight",
           },
+          WEATHER: "RAIN",
         },
       },
       NIGHT: {
-        entry: ["sleep"],
+        entry: "sleep",
         on: {
           TICK: {
             target: "DAY",
             actions: sendParent("WAKE"),
             cond: "isDay",
           },
+        },
+      },
+      RAIN: {
+        entry: "rain",
+        on: {
+          WEATHER: "DAY",
         },
       },
     },
@@ -145,6 +128,10 @@ const sceneMachine = createMachine(
           wakeTime: context.clock + NIGHT_LENGTH,
         };
       }),
+      rain: () => {
+        modScene("rain");
+        modFox("RAIN");
+      },
     },
     guards: {
       isDay: (context) => context.wakeTime === context.clock,
@@ -180,6 +167,9 @@ const gameMachine = createMachine(
           },
           RIGHT: {
             actions: send("RIGHT", { to: "ICONS" }),
+          },
+          WEATHER: {
+            actions: send("WEATHER", { to: "SCENE" }),
           },
         },
         states: {
