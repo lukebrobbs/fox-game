@@ -44,9 +44,6 @@ const iconMachine = createMachine(
         on: {
           RIGHT: "FEED",
           LEFT: "POOP",
-          SELECT: {
-            actions: () => console.log("SEL"),
-          },
         },
         entry: "highlightWeather",
         exit: "dehighlightWeather",
@@ -184,9 +181,6 @@ const gameMachine = createMachine(
           RIGHT: {
             actions: send("RIGHT", { to: "ICONS" }),
           },
-          SELECT: {
-            actions: send("SELECT", { to: "ICONS" }),
-          },
         },
         states: {
           FOX: {
@@ -206,6 +200,9 @@ const gameMachine = createMachine(
                   SLEEP: "SLEEPING",
                   TICK: {
                     actions: send("TICK", { to: "SCENE" }),
+                  },
+                  SELECT: {
+                    actions: send("SELECT", { to: "ICONS" }),
                   },
                 },
               },
@@ -229,8 +226,12 @@ const gameMachine = createMachine(
                 entry: "hungryAnimation",
                 on: {
                   FEED: "EATING",
+                  SLEEP: "SLEEPING",
                   TICK: {
                     actions: send("TICK", { to: "SCENE" }),
+                  },
+                  SELECT: {
+                    actions: send("SELECT", { to: "ICONS" }),
                   },
                 },
               },

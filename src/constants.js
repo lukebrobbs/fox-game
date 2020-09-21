@@ -14,5 +14,5 @@ export const ANIMATIONS = {
   HUNGRY: "hungry",
 };
 
-export const DAY_LENGTH = 30;
+export const DAY_LENGTH = 1;
 export const NIGHT_LENGTH = 20;
