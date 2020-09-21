@@ -18,5 +18,11 @@
     "eslint-plugin-import": "^2.22.0",
     "parcel-bundler": "^1.12.4",
     "prettier": "^2.1.2"
+  },
+  "browserslist": [
+    "last 2 Chrome versions"
+  ],
+  "dependencies": {
+    "xstate": "^4.13.0"
   }
 }
