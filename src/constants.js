@@ -12,6 +12,7 @@ export const ANIMATIONS = {
   SLEEPING: "sleep",
   RAIN: "rain",
   HUNGRY: "hungry",
+  DEAD: "dead",
 };
 
 export const DAY_LENGTH = 30;
@@ -21,4 +22,4 @@ export const getNextHungerTime = (clock) =>
   Math.floor(Math.random() * 3) + 5 + clock;
 
 export const getNextDieTime = (clock) =>
-  Math.floor(Math.random() * 2) + 3 + clock;
+  Math.floor(Math.random() * 2) + 8 + clock;
