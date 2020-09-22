@@ -105,7 +105,10 @@ const sceneMachine = createMachine(
       RAIN: {
         entry: "rain",
         on: {
-          WEATHER: "DAY",
+          WEATHER: {
+            target: "DAY",
+            actions: "day",
+          },
         },
       },
     },
@@ -131,6 +134,10 @@ const sceneMachine = createMachine(
       rain: () => {
         modScene("rain");
         modFox("RAIN");
+      },
+      day: () => {
+        modScene("day");
+        modFox("IDLE");
       },
     },
     guards: {
