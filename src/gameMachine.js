@@ -1,7 +1,8 @@
-import { createMachine, interpret, assign, send, sendParent } from "xstate";
+import { createMachine, interpret, assign, send, actions } from "xstate";
 import { NIGHT_LENGTH, DAY_LENGTH } from "./constants";
 import { modFox, modScene, toggleHighlighted } from "./ui";
 
+const { respond } = actions;
 const startClock = assign({
   wakeTime: (context) => context.clock + 3,
 });
@@ -13,6 +14,87 @@ const incrementClock = assign((context) => {
   };
 });
 
+const foxMachine = createMachine(
+  {
+    initial: "HATCHING",
+    states: {
+      HATCHING: {
+        entry: "hatchAnimation",
+        after: {
+          HATCH: "IDLING",
+        },
+      },
+      IDLING: {
+        entry: "idleAnimation",
+        on: {
+          FEED: "EATING",
+          SLEEP: "SLEEPING",
+          TICK: {
+            actions: respond("CAN_TICK"),
+          },
+          SELECT: {
+            actions: respond("CAN_SELECT"),
+          },
+        },
+      },
+      SLEEPING: {
+        entry: "sleepingAnimation",
+        on: {
+          WAKE: "HUNGRY",
+          TICK: {
+            actions: respond("CAN_TICK"),
+          },
+          SELECT: {
+            actions: respond("CAN_SELECT"),
+          },
+        },
+      },
+      EATING: {
+        entry: "eatingAnimation",
+        after: {
+          EATING: "CELEBRATING",
+        },
+      },
+      POOPING: {},
+      HUNGRY: {
+        entry: "hungryAnimation",
+        on: {
+          FEED: "EATING",
+          SLEEP: "SLEEPING",
+          TICK: {
+            actions: respond("CAN_TICK"),
+          },
+          SELECT: {
+            actions: respond("CAN_SELECT"),
+          },
+        },
+      },
+      CELEBRATING: {
+        entry: "celebratingAnimation",
+        after: {
+          CELEBRATE: "IDLING",
+        },
+      },
+      DEAD: {},
+    },
+  },
+  {
+    actions: {
+      hatchAnimation: () => modFox("HATCH"),
+      idleAnimation: () => modFox("IDLE"),
+      eatingAnimation: () => modFox("EATING"),
+      celebratingAnimation: () => modFox("CELEBRATING"),
+      sleepingAnimation: () => modFox("SLEEPING"),
+      hungryAnimation: () => modFox("HUNGRY"),
+    },
+    delays: {
+      HATCH: 3500,
+      EATING: 3000,
+      CELEBRATE: 2500,
+    },
+  }
+);
+
 const iconMachine = createMachine(
   {
     initial: "FEED",
@@ -22,7 +104,7 @@ const iconMachine = createMachine(
           RIGHT: "POOP",
           LEFT: "WEATHER",
           SELECT: {
-            actions: sendParent("FEED"),
+            actions: respond("FEED"),
           },
         },
         entry: "highlightFeed",
@@ -44,7 +126,7 @@ const iconMachine = createMachine(
           RIGHT: "FEED",
           LEFT: "POOP",
           SELECT: {
-            actions: sendParent("WEATHER"),
+            actions: respond("WEATHER"),
           },
         },
         entry: "highlightWeather",
@@ -86,7 +168,7 @@ const sceneMachine = createMachine(
         on: {
           TICK: {
             target: "NIGHT",
-            actions: sendParent("SLEEP"),
+            actions: respond("SLEEP"),
             cond: "isNight",
           },
           WEATHER: "RAIN",
@@ -97,7 +179,7 @@ const sceneMachine = createMachine(
         on: {
           TICK: {
             target: "DAY",
-            actions: sendParent("WAKE"),
+            actions: respond("WAKE"),
             cond: "isDay",
           },
         },
@@ -147,121 +229,67 @@ const sceneMachine = createMachine(
   }
 );
 
-const gameMachine = createMachine(
-  {
-    initial: "INIT",
-    states: {
-      INIT: {
-        on: {
-          SELECT: "PLAYING",
-        },
+const gameMachine = createMachine({
+  initial: "INIT",
+  states: {
+    INIT: {
+      on: {
+        SELECT: "PLAYING",
       },
-      PLAYING: {
-        type: "parallel",
-        invoke: [
-          {
-            id: "ICONS",
-            src: iconMachine,
-          },
-          {
-            id: "SCENE",
-            src: sceneMachine,
-          },
-        ],
-        on: {
-          LEFT: {
-            actions: send("LEFT", { to: "ICONS" }),
-          },
-          RIGHT: {
-            actions: send("RIGHT", { to: "ICONS" }),
-          },
-          WEATHER: {
-            actions: send("WEATHER", { to: "SCENE" }),
-          },
+    },
+    PLAYING: {
+      invoke: [
+        {
+          id: "ICONS",
+          src: iconMachine,
         },
-        states: {
-          FOX: {
-            initial: "HATCHING",
-
-            states: {
-              HATCHING: {
-                entry: "hatchAnimation",
-                after: {
-                  HATCH: "IDLING",
-                },
-              },
-              IDLING: {
-                entry: "idleAnimation",
-                on: {
-                  FEED: "EATING",
-                  SLEEP: "SLEEPING",
-                  TICK: {
-                    actions: send("TICK", { to: "SCENE" }),
-                  },
-                  SELECT: {
-                    actions: send("SELECT", { to: "ICONS" }),
-                  },
-                },
-              },
-              SLEEPING: {
-                entry: "sleepingAnimation",
-                on: {
-                  WAKE: "HUNGRY",
-                  TICK: {
-                    actions: send("TICK", { to: "SCENE" }),
-                  },
-                },
-              },
-              EATING: {
-                entry: "eatingAnimation",
-                after: {
-                  EATING: "CELEBRATING",
-                },
-              },
-              POOPING: {},
-              HUNGRY: {
-                entry: "hungryAnimation",
-                on: {
-                  FEED: "EATING",
-                  SLEEP: "SLEEPING",
-                  TICK: {
-                    actions: send("TICK", { to: "SCENE" }),
-                  },
-                  SELECT: {
-                    actions: send("SELECT", { to: "ICONS" }),
-                  },
-                },
-              },
-              CELEBRATING: {
-                entry: "celebratingAnimation",
-                after: {
-                  CELEBRATE: "IDLING",
-                },
-              },
-              DEAD: {},
-            },
-          },
+        {
+          id: "SCENE",
+          src: sceneMachine,
+        },
+        {
+          id: "FOX",
+          src: foxMachine,
+        },
+      ],
+      on: {
+        LEFT: {
+          actions: send("LEFT", { to: "ICONS" }),
+        },
+        RIGHT: {
+          actions: send("RIGHT", { to: "ICONS" }),
+        },
+        CAN_SELECT: {
+          actions: send("SELECT", { to: "ICONS" }),
+        },
+        WEATHER: {
+          actions: send("WEATHER", { to: "SCENE" }),
+        },
+        CAN_TICK: {
+          actions: send("TICK", { to: "SCENE" }),
+        },
+        SELECT: {
+          actions: send("SELECT", { to: "FOX" }),
+        },
+        FEED: {
+          actions: send("FEED", { to: "FOX" }),
+        },
+        SLEEP: {
+          actions: send("SLEEP", { to: "FOX" }),
+        },
+        WAKE: {
+          actions: send("WAKE", { to: "FOX" }),
+        },
+        TICK: {
+          actions: send("TICK", { to: "FOX" }),
         },
       },
     },
   },
-  {
-    actions: {
-      hatchAnimation: () => modFox("HATCH"),
-      idleAnimation: () => modFox("IDLE"),
-      eatingAnimation: () => modFox("EATING"),
-      celebratingAnimation: () => modFox("CELEBRATING"),
-      sleepingAnimation: () => modFox("SLEEPING"),
-      hungryAnimation: () => modFox("HUNGRY"),
-    },
-    delays: {
-      HATCH: 3500,
-      EATING: 3000,
-      CELEBRATE: 2500,
-    },
-  }
-);
+});
 
-const gameService = interpret(gameMachine).start();
+const gameService = interpret(gameMachine)
+  .onTransition((state) => console.log(state))
+  .start();
 
 export default gameService;

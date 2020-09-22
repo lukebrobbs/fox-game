@@ -12,7 +12,7 @@ async function init() {
     const now = Date.now();
 
     if (nextTimeToTick <= now) {
-      gameService.send("TICK");
+      gameService.send("CAN_TICK");
       nextTimeToTick = now + TICK_RATE;
     }
     requestAnimationFrame(nextAnimationFrame);
