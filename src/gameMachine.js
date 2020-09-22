@@ -4,15 +4,17 @@ import {
   DAY_LENGTH,
   getNextHungerTime,
   getNextDieTime,
+  getNextPoopTime,
 } from "./constants";
-import { modFox, modScene, toggleHighlighted } from "./ui";
+import {
+  modFox,
+  modScene,
+  toggleHighlighted,
+  togglePoopBag,
+  writeModal,
+} from "./ui";
 
 const { respond } = actions;
-const startClock = assign({
-  hungryTime: (context) => getNextHungerTime(context.clock),
-  deathTime: (context) => getNextDieTime(context.clock),
-  wakeTime: (context) => context.clock + 3,
-});
 
 const incrementClock = assign((context) => {
   console.log(context);
@@ -38,40 +40,25 @@ const foxMachine = createMachine(
           SLEEP: "SLEEPING",
           HUNGRY: "HUNGRY",
           DEATH: "DEAD",
-          RAIN: "RAIN_BATHING",
+          RAIN: {
+            actions: "rainAnimation",
+          },
+          DAY: {
+            actions: "idleAnimation",
+          },
+          POOPING: "POOPING",
           TICK: {
             actions: respond("CAN_TICK"),
           },
-          SELECT: {
-            actions: respond("CAN_SELECT"),
-          },
         },
       },
-      RAIN_BATHING: {
-        entry: "rainAnimation",
-        on: {
-          DAY: "IDLING",
-          FEED: "EATING",
-          SLEEP: "SLEEPING",
-          HUNGRY: "HUNGRY",
-          DEATH: "DEAD",
-          TICK: {
-            actions: respond("CAN_TICK"),
-          },
-          SELECT: {
-            actions: respond("CAN_SELECT"),
-          },
-        },
-      },
+
       SLEEPING: {
         entry: "sleepingAnimation",
         on: {
           WAKE: "HUNGRY",
           TICK: {
             actions: respond("CAN_TICK"),
-          },
-          SELECT: {
-            actions: respond("CAN_SELECT"),
           },
         },
       },
@@ -81,18 +68,30 @@ const foxMachine = createMachine(
           EATING: "CELEBRATING",
         },
       },
-      POOPING: {},
+      POOPING: {
+        entry: "poopingAnimation",
+        after: {
+          POOP_TIME: "POOPED",
+        },
+      },
+      POOPED: {
+        on: {
+          CELEBRATING: "CELEBRATING",
+          DEATH: "DEAD",
+          TICK: {
+            actions: respond("CAN_TICK"),
+          },
+        },
+      },
       HUNGRY: {
         entry: "hungryAnimation",
         on: {
           FEED: "EATING",
           SLEEP: "SLEEPING",
           DEATH: "DEAD",
+          POOPING: "POOPING",
           TICK: {
             actions: respond("CAN_TICK"),
-          },
-          SELECT: {
-            actions: respond("CAN_SELECT"),
           },
         },
       },
@@ -115,15 +114,15 @@ const foxMachine = createMachine(
       celebratingAnimation: () => modFox("CELEBRATING"),
       sleepingAnimation: () => modFox("SLEEPING"),
       hungryAnimation: () => modFox("HUNGRY"),
-      deathAnimation: () => {
-        modFox("DEAD");
-      },
+      deathAnimation: () => modFox("DEAD"),
       rainAnimation: () => modFox("RAIN"),
+      poopingAnimation: () => modFox("POOPING"),
     },
     delays: {
       HATCH: 3500,
       EATING: 3000,
       CELEBRATE: 2500,
+      POOP_TIME: 2500,
     },
   }
 );
@@ -148,7 +147,7 @@ const iconMachine = createMachine(
           RIGHT: "WEATHER",
           LEFT: "FEED",
           SELECT: {
-            actions: "cleanupPoop",
+            actions: respond("CLEANUP"),
           },
         },
         entry: "highlightPoop",
@@ -173,9 +172,42 @@ const iconMachine = createMachine(
       dehighlightFeed: () => toggleHighlighted("FEED", false),
       highlightPoop: () => toggleHighlighted("POOP", true),
       dehighlightPoop: () => toggleHighlighted("POOP", false),
-      cleanupPoop: () => console.log("cleanup poop"),
       highlightWeather: () => toggleHighlighted("WEATHER", true),
       dehighlightWeather: () => toggleHighlighted("WEATHER", false),
+    },
+  }
+);
+
+const poopMachine = createMachine(
+  {
+    initial: "HIDDEN",
+    states: {
+      HIDDEN: {
+        entry: "hidePoopBag",
+        on: {
+          POOP: "HAS_POOPED",
+        },
+      },
+      HAS_POOPED: {
+        on: {
+          CLEANUP: "SHOW",
+        },
+      },
+      SHOW: {
+        entry: "showPoopBag",
+        after: {
+          CLEANUP: "HIDDEN",
+        },
+      },
+    },
+  },
+  {
+    actions: {
+      showPoopBag: () => togglePoopBag(true),
+      hidePoopBag: () => togglePoopBag(false),
+    },
+    delays: {
+      CLEANUP: 3000,
     },
   }
 );
@@ -184,9 +216,10 @@ const sceneMachine = createMachine(
   {
     id: "SCENE",
     initial: "DAY",
+
     states: {
       DAY: {
-        entry: "wake",
+        entry: "day",
         on: {
           NIGHT: {
             target: "NIGHT",
@@ -200,7 +233,7 @@ const sceneMachine = createMachine(
         },
       },
       NIGHT: {
-        entry: "sleep",
+        entry: "night",
         on: {
           DAY: {
             target: "DAY",
@@ -229,16 +262,10 @@ const sceneMachine = createMachine(
   },
   {
     actions: {
-      startClock,
-      wake: () => modScene("day"),
-      sleep: () => modScene("night"),
+      night: () => modScene("night"),
       death: () => modScene("dead"),
       rain: () => modScene("rain"),
       day: () => modScene("day"),
-    },
-    guards: {
-      isDay: (context) => context.wakeTime === context.clock,
-      isNight: (context) => context.clock === context.sleepTime,
     },
   }
 );
@@ -247,10 +274,11 @@ const gameMachine = createMachine(
   {
     initial: "INIT",
     context: {
-      wakeTime: -1,
       sleepTime: -1,
+      wakeTime: -1,
       hungryTime: -1,
       deathTime: -1,
+      poopTime: -1,
       clock: 1,
     },
     states: {
@@ -260,7 +288,7 @@ const gameMachine = createMachine(
         },
       },
       PLAYING: {
-        entry: ["startClock", "wake"],
+        entry: ["wake", "clearModal"],
         invoke: [
           {
             id: "ICONS",
@@ -274,6 +302,10 @@ const gameMachine = createMachine(
             id: "FOX",
             src: foxMachine,
           },
+          {
+            id: "POOP",
+            src: poopMachine,
+          },
         ],
         on: {
           LEFT: {
@@ -282,9 +314,7 @@ const gameMachine = createMachine(
           RIGHT: {
             actions: send("RIGHT", { to: "ICONS" }),
           },
-          CAN_SELECT: {
-            actions: send("SELECT", { to: "ICONS" }),
-          },
+
           WEATHER: {
             actions: [send("WEATHER", { to: "SCENE" })],
           },
@@ -306,21 +336,37 @@ const gameMachine = createMachine(
               cond: "isDay",
             },
             {
-              actions: ["incrementClock", send("HUNGRY", { to: "FOX" })],
+              actions: [
+                "incrementClock",
+                "setDeathTime",
+                send("HUNGRY", { to: "FOX" }),
+              ],
               cond: "isHungry",
+            },
+            {
+              actions: [
+                "incrementClock",
+                send("POOPING", { to: "FOX" }),
+                send("POOP", { to: "POOP" }),
+                "poop",
+              ],
+              cond: "isPooping",
             },
             {
               actions: "incrementClock",
             },
           ],
           SELECT: {
-            actions: send("SELECT", { to: "FOX" }),
+            actions: send("SELECT", { to: "ICONS" }),
           },
           FEED: {
+            actions: [send("FEED", { to: "FOX" }), "eat"],
+          },
+          CLEANUP: {
             actions: [
-              send("FEED", { to: "FOX" }),
-              "setNextHungryTime",
-              "setDeathTime",
+              "cleanup",
+              send("CLEANUP", { to: "POOP" }),
+              send("CELEBRATING", { to: "FOX" }),
             ],
           },
           SLEEP: {
@@ -345,37 +391,50 @@ const gameMachine = createMachine(
   {
     actions: {
       incrementClock,
-      startClock,
       wake: assign((context) => {
         return {
-          sleepTime: -1,
-          wakeTime: context.clock + NIGHT_LENGTH,
+          wakeTime: -1,
+          sleepTime: context.clock + DAY_LENGTH,
+          hungryTime: getNextHungerTime(context.clock),
         };
       }),
       sleep: assign((context) => {
         return {
-          wakeTime: -1,
-          sleepTime: context.clock + DAY_LENGTH,
+          sleepTime: -1,
+          wakeTime: context.clock + NIGHT_LENGTH,
+          hungryTime: -1,
+          poopTime: -1,
+          deathTime: -1,
         };
-      }),
-      setNextHungryTime: assign({
-        hungryTime: (context) => getNextHungerTime(context.clock),
       }),
       setDeathTime: assign({
         deathTime: (context) => getNextDieTime(context.clock),
       }),
+      eat: assign({
+        hungryTime: (context) => getNextHungerTime(context.clock),
+        poopTime: (context) => getNextPoopTime(context.clock),
+        deathTime: () => -1,
+      }),
+      poop: assign({
+        poopTime: () => -1,
+        hungryTime: (context) => getNextHungerTime(context.clock),
+        deathTime: (context) => getNextDieTime(context.clock),
+      }),
+      cleanup: assign({
+        deathTime: () => -1,
+      }),
+      clearModal: () => writeModal(),
     },
     guards: {
-      isDay: (context) => context.sleepTime === context.clock,
-      isNight: (context) => context.clock === context.wakeTime,
+      isDay: (context) => context.wakeTime === context.clock,
+      isNight: (context) => context.clock === context.sleepTime,
       isHungry: (context) => context.clock === context.hungryTime,
+      isPooping: (context) => context.clock === context.poopTime,
       isDead: (context) => context.clock === context.deathTime,
     },
   }
 );
 
-const gameService = interpret(gameMachine)
-  .onTransition((state) => console.log(state))
-  .start();
+const gameService = interpret(gameMachine).start();
 
 export default gameService;
