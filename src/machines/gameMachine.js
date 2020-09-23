@@ -12,14 +12,9 @@ import {
 } from "../constants";
 import { writeModal } from "../ui";
 
-const incrementClock = assign((context) => {
-  return {
-    clock: context.clock + 1,
-  };
-});
-
 const gameMachine = createMachine(
   {
+    id: "GAME",
     initial: "INIT",
     context: {
       sleepTime: -1,
@@ -66,14 +61,13 @@ const gameMachine = createMachine(
           WEATHER: {
             actions: forwardTo("SCENE"),
           },
-          GAME_OVER: "INIT",
           TOCK: [
             {
               actions: [
                 "incrementClock",
+                "death",
                 send("DEATH", { to: "FOX" }),
                 send("DEATH", { to: "SCENE" }),
-                "death",
               ],
               cond: "isDead",
             },
@@ -134,32 +128,30 @@ const gameMachine = createMachine(
           TICK: {
             actions: forwardTo("FOX"),
           },
+          GAME_OVER: "INIT",
         },
       },
     },
   },
   {
     actions: {
-      incrementClock,
-      wake: assign((context) => {
-        return {
-          wakeTime: -1,
-          sleepTime: context.clock + DAY_LENGTH,
-          hungryTime: getNextHungerTime(context.clock),
-        };
+      incrementClock: assign({
+        clock: (context) => context.clock + 1,
       }),
-      sleep: assign((context) => {
-        return {
-          sleepTime: -1,
-          wakeTime: context.clock + NIGHT_LENGTH,
-          hungryTime: -1,
-          poopTime: -1,
-          deathTime: -1,
-        };
+      wake: assign({
+        wakeTime: -1,
+        sleepTime: (context) => context.clock + DAY_LENGTH,
+        hungryTime: (context) => getNextHungerTime(context.clock),
+      }),
+      sleep: assign({
+        sleepTime: -1,
+        wakeTime: (context) => context.clock + NIGHT_LENGTH,
+        hungryTime: -1,
+        poopTime: -1,
+        deathTime: -1,
       }),
       death: assign(() => {
         writeModal("The fox died :( <br/> Press the middle button to start");
-
         return {
           sleepTime: -1,
           wakeTime: -1,
@@ -174,15 +166,15 @@ const gameMachine = createMachine(
       eat: assign({
         hungryTime: (context) => getNextHungerTime(context.clock),
         poopTime: (context) => getNextPoopTime(context.clock),
-        deathTime: () => -1,
+        deathTime: -1,
       }),
       poop: assign({
-        poopTime: () => -1,
+        poopTime: -1,
         hungryTime: (context) => getNextHungerTime(context.clock),
         deathTime: (context) => getNextDieTime(context.clock),
       }),
       cleanup: assign({
-        deathTime: () => -1,
+        deathTime: -1,
       }),
       clearModal: () => writeModal(),
     },
