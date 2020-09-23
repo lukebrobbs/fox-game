@@ -1,22 +1,22 @@
-import gameService from "./gameMachine";
+import gameService from "./machines/gameMachine";
 import initButtons from "./buttons";
 
 const TICK_RATE = 3000;
 
-async function init() {
+async function init(service) {
   let nextTimeToTick = Date.now();
 
   function nextAnimationFrame() {
     const now = Date.now();
 
     if (nextTimeToTick <= now) {
-      gameService.send("TICK");
+      service.send("TICK");
       nextTimeToTick = now + TICK_RATE;
     }
     requestAnimationFrame(nextAnimationFrame);
   }
-  initButtons(gameService);
+  initButtons(service);
   requestAnimationFrame(nextAnimationFrame);
 }
 
-init();
+init(gameService);
