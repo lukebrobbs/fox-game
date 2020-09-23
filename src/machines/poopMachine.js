@@ -13,13 +13,13 @@ const poopMachine = createMachine(
       },
       HAS_POOPED: {
         on: {
-          CLEANUP: "SHOW",
+          CLEANUP: "CLEAN",
         },
       },
-      SHOW: {
+      CLEAN: {
         entry: "showPoopBag",
         after: {
-          CLEANUP: "HIDDEN",
+          CLEAN_TIME: "HIDDEN",
         },
       },
     },
@@ -30,7 +30,7 @@ const poopMachine = createMachine(
       hidePoopBag: () => togglePoopBag(false),
     },
     delays: {
-      CLEANUP: 3000,
+      CLEAN_TIME: 3000,
     },
   }
 );

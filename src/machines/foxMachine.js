@@ -20,13 +20,13 @@ const foxMachine = createMachine(
           SLEEP: "SLEEPING",
           HUNGRY: "HUNGRY",
           DEATH: "DEAD",
+          POOPING: "POOPING",
           RAIN: {
             actions: "rainAnimation",
           },
           DAY: {
             actions: "idleAnimation",
           },
-          POOPING: "POOPING",
           TICK: {
             actions: respond("TOCK"),
           },

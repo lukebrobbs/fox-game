@@ -37,7 +37,7 @@ const sceneMachine = createMachine(
         on: {
           WEATHER: {
             target: "DAY",
-            actions: ["day", respond("DAY")],
+            actions: respond("DAY"),
           },
           NIGHT: {
             target: "NIGHT",
