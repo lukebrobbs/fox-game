@@ -17,7 +17,6 @@ import {
 const { respond } = actions;
 
 const incrementClock = assign((context) => {
-  console.log(context);
   return {
     clock: context.clock + 1,
   };
@@ -102,7 +101,7 @@ const foxMachine = createMachine(
         },
       },
       DEAD: {
-        entry: "deathAnimation",
+        entry: ["deathAnimation", respond("GAME_OVER")],
       },
     },
   },
@@ -318,12 +317,14 @@ const gameMachine = createMachine(
           WEATHER: {
             actions: [send("WEATHER", { to: "SCENE" })],
           },
+          GAME_OVER: "INIT",
           CAN_TICK: [
             {
               actions: [
                 "incrementClock",
                 send("DEATH", { to: "FOX" }),
                 send("DEATH", { to: "SCENE" }),
+                "death",
               ],
               cond: "isDead",
             },
@@ -402,6 +403,17 @@ const gameMachine = createMachine(
         return {
           sleepTime: -1,
           wakeTime: context.clock + NIGHT_LENGTH,
+          hungryTime: -1,
+          poopTime: -1,
+          deathTime: -1,
+        };
+      }),
+      death: assign(() => {
+        writeModal("The fox died :( <br/> Press the middle button to start");
+
+        return {
+          sleepTime: -1,
+          wakeTime: -1,
           hungryTime: -1,
           poopTime: -1,
           deathTime: -1,
